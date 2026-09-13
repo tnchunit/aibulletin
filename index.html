@@ -1,0 +1,383 @@
+﻿<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>臺南市教育公告 OCR 自動下載助手</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Tesseract.js for In-Browser Client-Side OCR (Mobile / GitHub Pages) -->
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <!-- JSZip & FileSaver for In-Browser ZIP Generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <link rel="stylesheet" href="style.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#eff6ff',
+                            100: '#dbeafe',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col font-sans antialiased">
+
+    <!-- Top Navbar -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-md">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                </div>
+                <div>
+                    <div class="flex items-center space-x-2">
+                        <h1 class="text-lg font-bold text-slate-900 leading-tight">臺南市教育公告助手</h1>
+                        <span id="runtimeModeBadge" class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-blue-100 text-blue-700">檢測環境中...</span>
+                    </div>
+                    <p class="text-xs text-slate-500">截圖自動 OCR 辨識 • 移動辦公支援 • 公告附件下載歸檔</p>
+                </div>
+            </div>
+
+            <div class="flex items-center space-x-2">
+                <button id="btnHistory" class="px-3 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors flex items-center space-x-1">
+                    <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <span>紀錄</span>
+                </button>
+                <button id="btnSettings" class="px-3 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors flex items-center space-x-1">
+                    <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                    </svg>
+                    <span>設定</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full space-y-6">
+
+        <!-- Banner Info / Status Notice -->
+        <div id="envNoticeBanner" class="bg-blue-50/70 border border-blue-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-blue-800">
+            <div class="flex items-center space-x-2">
+                <span class="flex h-2 w-2 relative">
+                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-2 w-2 bg-blue-600"></span>
+                </span>
+                <span id="envLabel">目前運作模式：</span>
+                <span id="envDetails" class="font-semibold text-blue-900">連線檢測中...</span>
+            </div>
+            <div class="flex items-center space-x-3">
+                <span id="loginBadge" class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-slate-200 text-slate-700">一般瀏覽模式</span>
+            </div>
+        </div>
+
+        <!-- Step 1: Upload / Paste Section -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden transition-all">
+            <div class="p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center space-x-2">
+                        <span class="flex items-center justify-center w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold">1</span>
+                        <h2 class="text-base font-bold text-slate-900">上傳或貼上簽收聯圖檔</h2>
+                    </div>
+                    <span class="text-xs text-slate-400">支援剪貼簿貼上、拍照上傳、圖檔拖曳</span>
+                </div>
+
+                <!-- Dropzone Area -->
+                <div id="dropZone" class="relative border-2 border-dashed border-slate-300 rounded-xl p-8 text-center hover:border-blue-500 hover:bg-blue-50/30 transition-all cursor-pointer bg-slate-50/50">
+                    <input type="file" id="fileInput" accept="image/*" class="hidden">
+                    
+                    <div id="uploadPrompt" class="space-y-3">
+                        <div class="w-16 h-16 mx-auto rounded-full bg-blue-100 flex items-center justify-center text-blue-600 shadow-inner">
+                            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                            </svg>
+                        </div>
+                        <div>
+                            <p class="text-base font-medium text-slate-700">
+                                點擊此處選取圖檔，或直接按 <kbd class="px-2 py-1 bg-white border border-slate-300 rounded shadow-sm text-xs font-semibold text-blue-600">Ctrl + V</kbd> 貼上截圖
+                            </p>
+                            <p class="text-xs text-slate-400 mt-1">使用手機拍照、截圖工具 (Win + Shift + S) 截圖後直接貼上</p>
+                        </div>
+                    </div>
+
+                    <!-- Image Preview (Hidden by default) -->
+                    <div id="previewContainer" class="hidden flex flex-col md:flex-row items-center justify-center gap-6 text-left">
+                        <div class="relative group">
+                            <img id="imagePreview" src="" alt="截圖預覽" class="max-h-56 rounded-lg border border-slate-200 shadow-sm object-contain bg-white">
+                            <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
+                                <span class="text-white text-xs font-medium bg-black/60 px-2 py-1 rounded">點擊重新選取</span>
+                            </div>
+                        </div>
+                        <div class="space-y-2 flex-1 max-w-sm">
+                            <div class="flex items-center space-x-2 text-xs font-semibold text-emerald-600">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                </svg>
+                                <span>圖檔載入成功</span>
+                            </div>
+                            <p id="imageFileInfo" class="text-xs text-slate-500"></p>
+                            <button type="button" id="btnChangeImage" class="text-xs text-blue-600 hover:text-blue-800 underline">更換其他圖片</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- OCR Scanning Indicator -->
+                <div id="ocrLoading" class="hidden mt-4 p-4 bg-blue-50 rounded-xl border border-blue-200 flex items-center space-x-3 text-blue-800 text-sm">
+                    <svg class="animate-spin w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                    </svg>
+                    <span id="ocrStatusText">正在進行 OCR 文字辨識，擷取公告編號中...</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 2: Recognition Results & Confirmation (Appears once OCR is done) -->
+        <div id="step2Card" class="hidden bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden transition-all">
+            <div class="p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center space-x-2">
+                        <span class="flex items-center justify-center w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold">2</span>
+                        <h2 class="text-base font-bold text-slate-900">辨識結果與公告資訊確認</h2>
+                    </div>
+                    <span class="text-xs text-slate-400">可手動微調公告編號</span>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <!-- Bulletin ID (Highlighted) -->
+                    <div class="md:col-span-1 bg-gradient-to-br from-blue-50 to-indigo-50/50 p-4 rounded-xl border border-blue-200">
+                        <label class="block text-xs font-bold text-blue-900 mb-1">公告編號 (Bulletin ID)</label>
+                        <div class="relative">
+                            <input type="text" id="inputBulletinId" class="w-full text-2xl font-black text-blue-700 bg-white border border-blue-300 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono tracking-wider shadow-inner" placeholder="例如: 290612">
+                            <span class="absolute right-3 top-2.5 text-xs text-blue-400 font-medium">6碼</span>
+                        </div>
+                        <p class="text-[11px] text-blue-600 mt-1.5">由截圖自動識別，可手動修正</p>
+                    </div>
+
+                    <!-- Other parsed fields -->
+                    <div class="md:col-span-2 space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs">
+                        <div>
+                            <span class="font-bold text-slate-500">辨識標題：</span>
+                            <span id="ocrTitleDisplay" class="font-semibold text-slate-800 text-sm">--</span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2 text-slate-600">
+                            <div><span class="font-bold text-slate-500">公佈單位：</span><span id="ocrOfficeDisplay">--</span></div>
+                            <div><span class="font-bold text-slate-500">發佈時間：</span><span id="ocrDateDisplay">--</span></div>
+                            <div><span class="font-bold text-slate-500">公文文號：</span><span id="ocrDocNoDisplay">--</span></div>
+                            <div><span class="font-bold text-slate-500">簽收狀態：</span><span id="ocrSignDisplay" class="text-emerald-600 font-medium">--</span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action Button -->
+                <div class="flex flex-wrap items-center justify-end gap-3 pt-2">
+                    <button id="btnOpenOfficial" type="button" class="px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition-all flex items-center space-x-1.5 text-sm">
+                        <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                        </svg>
+                        <span>直接開啟官方公告網頁</span>
+                    </button>
+
+                    <button id="btnFetchAndDownload" class="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-bold shadow-md shadow-blue-500/20 hover:shadow-lg transition-all flex items-center space-x-2 text-sm">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                        </svg>
+                        <span id="btnDownloadText">下載公告與附件歸檔</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Download Progress Indicator -->
+        <div id="downloadProgress" class="hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-4">
+            <div class="flex items-center justify-between text-sm font-bold text-slate-800">
+                <span class="flex items-center space-x-2">
+                    <svg class="animate-spin w-4 h-4 text-blue-600" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                    </svg>
+                    <span id="progressStatusText">正在處理公告資料...</span>
+                </span>
+                <span id="progressPercent" class="text-xs font-mono text-slate-500">處理中</span>
+            </div>
+            <div class="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
+                <div id="progressBar" class="bg-blue-600 h-2.5 rounded-full w-1/3 animate-pulse transition-all duration-300"></div>
+            </div>
+        </div>
+
+        <!-- Step 3: Completed Result Card -->
+        <div id="resultCard" class="hidden bg-white rounded-2xl shadow-sm border border-emerald-200 overflow-hidden transition-all">
+            <div class="bg-gradient-to-r from-emerald-500 to-teal-600 px-6 py-4 text-white flex items-center justify-between">
+                <div class="flex items-center space-x-2">
+                    <div class="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center">
+                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path>
+                        </svg>
+                    </div>
+                    <span id="resultTitleHeader" class="font-bold text-base">歸檔完成！</span>
+                </div>
+                <span id="resultBulletinBadge" class="bg-white/25 px-2.5 py-0.5 rounded text-xs font-mono font-bold">290612</span>
+            </div>
+
+            <div class="p-6 space-y-6">
+                <!-- Folder Path Block (Shown in local mode) -->
+                <div id="folderPathBlock" class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                    <div class="flex items-center justify-between text-xs text-slate-500 mb-1">
+                        <span class="font-semibold">本機歸檔資料夾路徑：</span>
+                        <span class="text-emerald-600 font-medium">檔案已存入</span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <input type="text" id="resultFolderPath" readonly class="bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs font-mono text-slate-800 flex-1 select-all shadow-inner">
+                        <button id="btnOpenFolder" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow transition-colors flex items-center space-x-1 whitespace-nowrap">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z"></path>
+                            </svg>
+                            <span>在檔案總管開啟</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Bulletin Content & Attached Files -->
+                <div class="space-y-4">
+                    <div class="border-b border-slate-100 pb-2 flex items-center justify-between">
+                        <h3 class="font-bold text-slate-900 text-sm">包含檔案清單</h3>
+                        <span id="fileCountBadge" class="text-xs text-slate-400">共 0 個檔案</span>
+                    </div>
+                    
+                    <div id="downloadedFilesList" class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        <!-- Filled by JS -->
+                    </div>
+                </div>
+
+                <!-- Internal notice alert if login needed -->
+                <div id="internalNoticeAlert" class="hidden p-4 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 space-y-1">
+                    <div class="font-bold flex items-center space-x-1">
+                        <svg class="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                        </svg>
+                        <span>此公告在教育局系統標示為「內部公告（需教育人員權限）」</span>
+                    </div>
+                    <p class="text-amber-700">系統已儲存簽收憑證與文字摘要。如需查看官方內部附件，可點擊上方按鈕直接前往官方頁面登入檢視。</p>
+                </div>
+
+                <!-- Action Footer -->
+                <div class="flex items-center justify-between pt-4 border-t border-slate-100">
+                    <button id="btnResetAll" class="text-xs text-slate-500 hover:text-slate-800 flex items-center space-x-1">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                        </svg>
+                        <span>處理下一張公告截圖</span>
+                    </button>
+
+                    <div class="flex items-center space-x-2">
+                        <button id="btnDownloadZip" class="px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-xs font-semibold transition-colors flex items-center space-x-1 shadow-sm">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                            <span>下載 ZIP 歸檔包</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="hidden fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-slate-200 overflow-hidden">
+            <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                <h3 class="font-bold text-slate-900 text-base">系統設定</h3>
+                <button id="btnCloseSettings" class="text-slate-400 hover:text-slate-600">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            <div class="p-6 space-y-4 text-xs">
+                <!-- Local server custom URL for mobile remote access -->
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">後端 API 伺服器網址 (選填)</label>
+                    <input type="text" id="cfgBackendUrl" class="w-full border border-slate-300 rounded-lg p-2.5 font-mono text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="留空則自動偵測本機 localhost:8088">
+                    <p class="text-slate-400 mt-1">若使用 GitHub Pages 且希望連線至辦公室電腦，可填入 ngrok 或區域網路網址</p>
+                </div>
+
+                <div id="localConfigSection">
+                    <div class="mb-3">
+                        <label class="block font-bold text-slate-700 mb-1">本機儲存根目錄</label>
+                        <input type="text" id="cfgOutputDir" class="w-full border border-slate-300 rounded-lg p-2.5 font-mono text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                        <p class="text-slate-400 mt-1">每次下載將在此目錄下自動建立 <code>[公告編號] 標題</code> 資料夾</p>
+                    </div>
+                    <div class="flex items-center space-x-2 pt-1">
+                        <input type="checkbox" id="cfgAutoOpen" class="rounded text-blue-600 focus:ring-blue-500">
+                        <label for="cfgAutoOpen" class="text-slate-700 font-medium">下載完成後自動在 Windows 檔案總管中開啟</label>
+                    </div>
+                </div>
+                
+                <hr class="border-slate-100 my-2">
+
+                <div>
+                    <h4 class="font-bold text-slate-800 text-xs mb-2">臺南市教育局公告帳號認證（選填，供內部限制公告下載）</h4>
+                    <div class="space-y-2">
+                        <div>
+                            <label class="block text-slate-600 mb-0.5">教網帳號</label>
+                            <input type="text" id="cfgUsername" class="w-full border border-slate-300 rounded-lg p-2 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="教網個人或學校帳號">
+                        </div>
+                        <div>
+                            <label class="block text-slate-600 mb-0.5">密碼</label>
+                            <input type="password" id="cfgPassword" class="w-full border border-slate-300 rounded-lg p-2 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="密碼僅儲存於本機 config.json">
+                        </div>
+                        <div class="pt-1">
+                            <label class="block text-slate-600 mb-0.5">或直接貼上 Session Cookie</label>
+                            <input type="text" id="cfgCookie" class="w-full border border-slate-300 rounded-lg p-2 font-mono text-[11px] focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="ASP.NET_SessionId=...; .ASPXAUTH=...">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="px-6 py-3 bg-slate-50 border-t border-slate-100 flex justify-end space-x-2">
+                <button id="btnCancelSettings" class="px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-200 rounded-lg transition-colors">取消</button>
+                <button id="btnSaveSettings" class="px-4 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow transition-colors">儲存設定</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- History Modal -->
+    <div id="historyModal" class="hidden fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-2xl w-full shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[80vh]">
+            <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                <h3 class="font-bold text-slate-900 text-base">歷史下載歸檔紀錄</h3>
+                <button id="btnCloseHistory" class="text-slate-400 hover:text-slate-600">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            <div id="historyList" class="p-6 overflow-y-auto space-y-3 flex-1">
+                <!-- History Items -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="mt-auto py-6 border-t border-slate-200 text-center text-xs text-slate-400">
+        <p>臺南市教育公告 OCR 自動下載助手 • 支援本機 Windows 伺服器與 GitHub Pages 純前端部署</p>
+    </footer>
+
+    <script src="app.js"></script>
+</body>
+</html>
